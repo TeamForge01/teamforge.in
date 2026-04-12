@@ -1,6 +1,15 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const getApiKey = () => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === "MY_GEMINI_API_KEY") {
+    console.warn("GEMINI_API_KEY is missing or using a placeholder. Please configure it in the AI Studio Secrets panel.");
+    return "";
+  }
+  return key;
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export interface ValidationResult {
   score: number;
@@ -43,8 +52,18 @@ Target Audience: ${targetAudience}
 Revenue Model: ${revenueModel}
 Geography: ${geography}
 
-Provide a detailed breakdown including scores (1-10) for Competition, Demand, Monetization, Risks, and Future.
-Also provide strengths, weaknesses, recommendations, a list of 5 direct/indirect competitors with descriptions and placeholder links, and next steps.`;
+Provide a detailed breakdown including scores (1-10) for:
+1. Competition: Analyze the competitive landscape. Provide specific details on how this proposed idea differentiates itself from top competitors (Unique Selling Proposition).
+2. Demand: Evaluate market need and trend data.
+3. Monetization: Analyze the feasibility and scalability of the provided revenue model. If the current model seems weak or unscalable, suggest 2-3 alternative models.
+4. Risks: Identify major technical, regulatory, or market risks.
+5. Future: Assess long-term potential and exit possibilities.
+
+Also provide:
+- Strengths and Weaknesses.
+- Strategic Recommendations.
+- A list of 5 direct/indirect competitors. For each competitor, provide their name, a brief description, and a valid website link (URL).
+- Next steps for the founder.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",

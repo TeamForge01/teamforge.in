@@ -178,12 +178,15 @@ export default function Onboarding() {
       let errorMessage = "The synthesis failed. Please try again.";
       
       if (error instanceof Error) {
-        if (error.message.includes('insufficient permissions')) {
+        const errorText = error.message;
+        if (errorText.includes('API key not valid') || errorText.includes('API_KEY_INVALID')) {
+          errorMessage = "The Gemini API key is invalid or missing. Please ensure you have configured GEMINI_API_KEY in the Secrets panel.";
+        } else if (errorText.includes('insufficient permissions')) {
           errorMessage = "Database permission error. Please contact support.";
-        } else if (error.message.includes('tokens limit')) {
+        } else if (errorText.includes('tokens limit')) {
           errorMessage = "AI synthesis limit reached. Please try with shorter answers.";
         } else {
-          errorMessage = error.message;
+          errorMessage = errorText;
         }
       }
       

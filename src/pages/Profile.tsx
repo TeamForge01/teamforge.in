@@ -18,6 +18,7 @@ import {
   Award,
   ArrowRight,
   Sparkles,
+  Share2,
   Check,
   Loader2
 } from 'lucide-react';
@@ -96,6 +97,12 @@ export default function Profile() {
     }
   };
 
+  const handleShareProfile = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url);
+    toast.success('Profile link copied to clipboard!');
+  };
+
   if (loading) return null;
   if (!profile) return <div className="p-12 text-center font-bold">Profile not found.</div>;
 
@@ -153,6 +160,14 @@ export default function Profile() {
             </div>
 
             <div className="absolute bottom-4 right-4 flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleShareProfile}
+                className="bg-white/50 backdrop-blur-md border-none text-[#1f1b12] hover:bg-white rounded-2xl font-bold px-4 py-6 shadow-lg transition-all active:scale-95"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
               {!isOwnProfile ? (
                 <>
                   <Button className="bg-[#1f1b12] text-white hover:bg-[#903f00] rounded-2xl font-bold px-6 py-6 shadow-xl transition-all active:scale-95">

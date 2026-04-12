@@ -131,7 +131,17 @@
             "strengths": { "type": "array", "items": { "type": "string" } },
             "weaknesses": { "type": "array", "items": { "type": "string" } },
             "suggestions": { "type": "array", "items": { "type": "string" } },
-            "competitors": { "type": "array", "items": { "type": "string" } }
+            "competitors": { 
+              "type": "array", 
+              "items": { 
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "link": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              } 
+            }
           }
         },
         "fundingGoal": { "type": "number" },

@@ -6,9 +6,9 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Plus, ExternalLink, Trash2, FolderCode, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, ExternalLink, Trash2, FolderCode, Loader2, Image as ImageIcon, X, Pencil } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import {
@@ -40,7 +40,9 @@ interface ProjectShowcaseProps {
 
 export default function ProjectShowcase({ userId, projects = [], isOwnProfile }: ProjectShowcaseProps) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     title: '',
     description: '',
@@ -48,6 +50,40 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
     link: '',
     imageURL: ''
   });
+
+  const handleEditProject = async () => {
+    if (!editingProject) return;
+    if (!editingProject.title.trim() || !editingProject.description.trim()) {
+      toast.error('Title and description are required.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const docRef = doc(db, 'profiles', userId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const currentProjects = docSnap.data().projects || [];
+        const updatedProjects = currentProjects.map((p: Project) => 
+          p.id === editingProject.id ? editingProject : p
+        );
+
+        await updateDoc(docRef, {
+          projects: updatedProjects
+        });
+
+        toast.success('Project updated successfully!');
+        setIsEditing(false);
+        setEditingProject(null);
+      }
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast.error('Failed to update project.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,6 +288,68 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </Button>
+                      )}
+                      {isOwnProfile && (
+                        <Dialog open={isEditing && editingProject?.id === project.id} onOpenChange={(open) => {
+                          if (!open) {
+                            setIsEditing(false);
+                            setEditingProject(null);
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => {
+                                setEditingProject(project);
+                                setIsEditing(true);
+                              }}
+                              className="rounded-full hover:bg-[#F5ECDD] text-[#B45309]"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="bg-[#F5ECDD] border-none rounded-[2rem] max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="text-2xl font-black text-[#111111]">Edit Project</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 pt-4">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Project Title</label>
+                                <Input 
+                                  value={editingProject?.title || ''}
+                                  onChange={e => setEditingProject(prev => prev ? {...prev, title: e.target.value} : null)}
+                                  className="bg-white border-none rounded-xl"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Description</label>
+                                <Textarea 
+                                  value={editingProject?.description || ''}
+                                  onChange={e => setEditingProject(prev => prev ? {...prev, description: e.target.value} : null)}
+                                  className="bg-white border-none rounded-xl min-h-[100px]"
+                                  maxLength={500}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Project Link</label>
+                                <Input 
+                                  value={editingProject?.link || ''}
+                                  onChange={e => setEditingProject(prev => prev ? {...prev, link: e.target.value} : null)}
+                                  placeholder="https://..."
+                                  className="bg-white border-none rounded-xl"
+                                />
+                              </div>
+                              <Button 
+                                onClick={handleEditProject}
+                                disabled={loading}
+                                className="w-full bg-[#B45309] text-white hover:bg-[#B45309]/90 h-12 rounded-xl font-bold mt-4"
+                              >
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save Changes'}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       )}
                       {isOwnProfile && (
                         <AlertDialog>

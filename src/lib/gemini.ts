@@ -1,6 +1,15 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const getApiKey = () => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === "MY_GEMINI_API_KEY") {
+    console.warn("GEMINI_API_KEY is missing or using a placeholder. Please configure it in the AI Studio Secrets panel.");
+    return "";
+  }
+  return key;
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export async function generateUserProfile(answers: string[]) {
   const prompt = `Analyze this user's answers from a startup onboarding chat and generate a structured profile.

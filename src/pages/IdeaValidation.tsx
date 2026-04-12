@@ -345,7 +345,12 @@ export default function IdeaValidation() {
                                   <p className="text-xs font-bold text-[#1f1b12]">{comp.name}</p>
                                   <p className="text-[10px] text-[#564338]/60 line-clamp-1">{comp.description}</p>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-[#564338]/40 group-hover:text-[#903f00]">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 text-[#564338]/40 group-hover:text-[#903f00]"
+                                  onClick={() => window.open(comp.link.startsWith('http') ? comp.link : `https://${comp.link}`, '_blank')}
+                                >
                                   <ExternalLink className="w-3 h-3" />
                                 </Button>
                               </div>
