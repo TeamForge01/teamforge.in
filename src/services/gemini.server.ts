@@ -1,5 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
+console.log("Gemini Server Service Loading...");
+
 const getApiKey = () => {
   const key = process.env.GEMINI_API_KEY;
   if (!key || key === "MY_GEMINI_API_KEY") {
