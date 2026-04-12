@@ -1,0 +1,299 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Auth UID)
+    // Fields: uid, email, onboardingCompleted, createdAt
+    //
+    // Collection: profiles
+    // Document ID: {userId} (Auth UID)
+    // Fields: uid, displayName, photoURL, bio, skills, interests, role, personality, mindsetTraits, knowledgeGaps, badges, workStyle, experienceLevel, commitment, recommendations, lookingFor, projects, updatedAt
+    //
+    // Collection: ideas
+    // Document ID: {ideaId}
+    // Fields: id, founderId, founderName, title, tagline, description, problem, solution, targetAudience, revenueModel, geography, equityExpectations, stage, status, aiValidation, createdAt
+    //
+    // Collection: joinRequests
+    // Document ID: {requestId}
+    // Fields: id, ideaId, ideaTitle, userId, userName, userRole, status, message, createdAt
+    //
+    // Collection: messages
+    // Document ID: {messageId}
+    // Fields: id, chatId, senderId, receiverId, text, createdAt
+    //
+    // Collection: tasks
+    // Document ID: {taskId}
+    // Fields: id, ideaId, title, description, assignedTo, assignedToName, status, priority, createdAt
+    //
+    // Collection: notes
+    // Document ID: {noteId}
+    // Fields: id, ideaId, title, content, lastEditedBy, updatedAt
+    //
+    // Collection: notifications
+    // Document ID: {notificationId}
+    // Fields: id, userId, type, title, message, link, read, createdAt
+    //
+    // Collection: ideaVersions
+    // Document ID: {versionId}
+    // Fields: id, ideaId, description, editedBy, editedByName, createdAt
+    //
+    // Collection: teamMembers
+    // Document ID: {memberId}
+    // Fields: id, ideaId, uid, email, displayName, role, status, joinedAt
+    //
+    // Collection: traction
+    // Document ID: {tractionId}
+    // Fields: id, ideaId, metricName, value, date, createdAt
+    //
+    // Collection: investorProfiles
+    // Document ID: {userId}
+    // Fields: uid, displayName, bio, interests, investmentRange, verified
+    //
+    // Collection: investmentInterests
+    // Document ID: {interestId}
+    // Fields: id, investorId, investorName, ideaId, ideaTitle, status, message, createdAt
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email == "teamforge01@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isInvestor() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/investorProfiles/$(request.auth.uid));
+    }
+
+    function isTeamMember(ideaId) {
+      let idea = get(/databases/$(database)/documents/ideas/$(ideaId)).data;
+      return isAuthenticated() && (
+        idea.founderId == request.auth.uid ||
+        // Check for team member record (using a composite key or searching)
+        // Since we don't have a fixed ID for teamMembers, we might need a different approach
+        // or assume the app uses a specific ID format like {uid}_{ideaId}
+        exists(/databases/$(database)/documents/teamMembers/$(request.auth.uid + "_" + ideaId))
+      );
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             data.onboardingCompleted is bool &&
+             data.createdAt is string;
+    }
+
+    function isValidProfile(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100;
+    }
+
+    function isValidIdea(data) {
+      return data.founderId is string && data.founderId == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 10000;
+    }
+
+    function isValidIdeaVersion(data) {
+      return data.ideaId is string &&
+             data.description is string && data.description.size() < 10000 &&
+             data.editedBy is string && data.editedBy == request.auth.uid;
+    }
+
+    function isValidTraction(data) {
+      return data.ideaId is string &&
+             data.metricName is string && data.metricName.size() < 100 &&
+             data.value is string && data.value.size() < 100;
+    }
+
+    function isValidInvestorProfile(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.displayName is string && data.displayName.size() > 0;
+    }
+
+    function isValidInvestmentInterest(data) {
+      return data.investorId is string && data.investorId == request.auth.uid &&
+             data.ideaId is string &&
+             data.status in ['pending', 'contacted', 'closed'];
+    }
+
+    function isValidJoinRequest(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.ideaId is string &&
+             data.status in ['pending', 'accepted', 'rejected'];
+    }
+
+    function isValidMessage(data) {
+      return data.senderId is string && data.senderId == request.auth.uid &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000;
+    }
+
+    function isValidTask(data) {
+      return data.ideaId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.status in ['todo', 'in-progress', 'done'];
+    }
+
+    function isValidNote(data) {
+      return data.ideaId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200;
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string &&
+             data.read is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidProfile(request.resource.data);
+    }
+
+    match /ideas/{ideaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidIdea(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.founderId == request.auth.uid && isValidIdea(request.resource.data)) ||
+        (isTeamMember(ideaId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description', 'updatedAt'])) ||
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (resource.data.founderId == request.auth.uid || isAdmin());
+    }
+
+    match /ideaVersions/{versionId} {
+      allow read: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+      allow create: if isAuthenticated() && isTeamMember(request.resource.data.ideaId) && isValidIdeaVersion(request.resource.data);
+    }
+
+    match /teamMembers/{memberId} {
+      allow read: if isAuthenticated() && (isTeamMember(resource.data.ideaId) || resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && (
+        get(/databases/$(database)/documents/ideas/$(request.resource.data.ideaId)).data.founderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isAuthenticated() && (
+        get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    match /traction/{tractionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isTeamMember(request.resource.data.ideaId) && isValidTraction(request.resource.data);
+      allow update: if isAuthenticated() && isTeamMember(resource.data.ideaId) && isValidTraction(request.resource.data);
+      allow delete: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+    }
+
+    match /investorProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidInvestorProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidInvestorProfile(request.resource.data);
+    }
+
+    match /investmentInterests/{interestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.investorId == request.auth.uid ||
+        get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isInvestor() && isValidInvestmentInterest(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.investorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['message', 'status'])) ||
+        (get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        isAdmin()
+      );
+    }
+
+    match /joinRequests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || 
+        get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && isValidJoinRequest(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (get(/databases/$(database)/documents/ideas/$(resource.data.ideaId)).data.founderId == request.auth.uid && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+        isAdmin()
+      );
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid ||
+        ('chatId' in resource.data && isTeamMember(resource.data.chatId)) ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+      allow create: if isAuthenticated() && isTeamMember(request.resource.data.ideaId) && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && isTeamMember(resource.data.ideaId) && isValidTask(request.resource.data);
+      allow delete: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+    }
+
+    match /notes/{noteId} {
+      allow read: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+      allow create: if isAuthenticated() && isTeamMember(request.resource.data.ideaId) && isValidNote(request.resource.data);
+      allow update: if isAuthenticated() && isTeamMember(resource.data.ideaId) && isValidNote(request.resource.data);
+      allow delete: if isAuthenticated() && isTeamMember(resource.data.ideaId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated();
+      allow update: if isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

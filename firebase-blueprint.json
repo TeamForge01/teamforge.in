@@ -1,0 +1,357 @@
+{
+  "entities": {
+    "User": {
+      "title": "Private User Data",
+      "description": "Stores sensitive user information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Profile": {
+      "title": "Public User Profile",
+      "description": "Stores non-sensitive profile information for discovery.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "role": { "type": "string" },
+        "personality": { "type": "string" },
+        "mindsetTraits": { "type": "array", "items": { "type": "string" } },
+        "knowledgeGaps": { "type": "array", "items": { "type": "string" } },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "completedCourses": { "type": "array", "items": { "type": "string" } },
+        "learningPathProgress": { "type": "object" },
+        "workStyle": { "type": "string" },
+        "experienceLevel": { "type": "string", "enum": ["Student", "First-time Founder", "Serial Entrepreneur"] },
+        "commitment": { "type": "string", "enum": ["Full-time", "Part-time", "Weekends", "Post-graduation"] },
+        "recommendations": { "type": "string" },
+        "lookingFor": { "type": "string" },
+        "projects": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "technologies": { "type": "array", "items": { "type": "string" } },
+              "link": { "type": "string" }
+            }
+          } 
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "Task": {
+      "title": "Team Task",
+      "description": "A task within a startup team.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedTo": { "type": "string", "description": "User ID" },
+        "assignedToName": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "in-progress", "done"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "title", "status"]
+    },
+    "Note": {
+      "title": "Shared Note",
+      "description": "A collaborative note for brainstorming.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "lastEditedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "title"]
+    },
+    "Notification": {
+      "title": "User Notification",
+      "description": "Real-time alerts for user actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["message", "join_request", "request_accepted", "request_rejected", "invitation"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "link": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "title", "message", "read"]
+    },
+    "Idea": {
+      "title": "Startup Idea",
+      "description": "Represents a startup idea created by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "founderId": { "type": "string" },
+        "founderName": { "type": "string" },
+        "title": { "type": "string" },
+        "tagline": { "type": "string" },
+        "description": { "type": "string" },
+        "problem": { "type": "string" },
+        "solution": { "type": "string" },
+        "targetAudience": { "type": "string" },
+        "revenueModel": { "type": "string" },
+        "geography": { "type": "string" },
+        "equityExpectations": { "type": "string" },
+        "stage": { "type": "string", "enum": ["Idea", "MVP", "Scaling", "Funded"] },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "aiValidation": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number" },
+            "marketPotential": { "type": "string" },
+            "competition": { "type": "number", "description": "Score 1-10" },
+            "demand": { "type": "number", "description": "Score 1-10" },
+            "monetization": { "type": "number", "description": "Score 1-10" },
+            "risks": { "type": "number", "description": "Score 1-10" },
+            "future": { "type": "number", "description": "Score 1-10" },
+            "strengths": { "type": "array", "items": { "type": "string" } },
+            "weaknesses": { "type": "array", "items": { "type": "string" } },
+            "suggestions": { "type": "array", "items": { "type": "string" } },
+            "competitors": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "fundingGoal": { "type": "number" },
+        "raisedAmount": { "type": "number" },
+        "pitchDeckUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["founderId", "title", "description"]
+    },
+    "IdeaVersion": {
+      "title": "Idea Version",
+      "description": "A snapshot of an idea description for version history.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "description": { "type": "string" },
+        "editedBy": { "type": "string" },
+        "editedByName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "description", "editedBy"]
+    },
+    "TeamMember": {
+      "title": "Team Member",
+      "description": "A user who is part of a startup team.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "invited"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "email", "status"]
+    },
+    "Traction": {
+      "title": "Startup Traction",
+      "description": "Key metrics showing the progress of a startup.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "metricName": { "type": "string" },
+        "value": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "metricName", "value"]
+    },
+    "InvestorProfile": {
+      "title": "Investor Profile",
+      "description": "Profile information for potential investors.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "investmentRange": { "type": "string" },
+        "verified": { "type": "boolean" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "InvestmentInterest": {
+      "title": "Investment Interest",
+      "description": "Indication of interest from an investor in a startup.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "investorId": { "type": "string" },
+        "investorName": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "ideaTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "contacted", "closed"] },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["investorId", "ideaId", "status"]
+    },
+    "JoinRequest": {
+      "title": "Join Request",
+      "description": "A request from a user to join a startup idea.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string" },
+        "ideaTitle": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected"] },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ideaId", "userId", "status"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A message sent between users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string", "description": "Unique ID for the conversation between two users" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "senderId", "receiverId", "text"]
+    },
+    "Connection": {
+      "title": "User Connection",
+      "description": "Represents a connection between two founders.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "users": { "type": "array", "items": { "type": "string" }, "description": "Array of two user IDs" },
+        "status": { "type": "string", "enum": ["pending", "accepted"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["users", "status"]
+    },
+    "LearningPath": {
+      "title": "Learning Path",
+      "description": "A curated sequence of courses and modules.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "courses": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "videoUrl": { "type": "string" },
+              "duration": { "type": "string" }
+            }
+          } 
+        },
+        "badge": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "icon": { "type": "string" }
+          }
+        }
+      },
+      "required": ["title", "courses"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user data"
+    },
+    "/profiles/{userId}": {
+      "schema": "Profile",
+      "description": "Public user profiles"
+    },
+    "/ideas/{ideaId}": {
+      "schema": "Idea",
+      "description": "Startup ideas"
+    },
+    "/joinRequests/{requestId}": {
+      "schema": "JoinRequest",
+      "description": "Requests to join ideas"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Direct messages"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Team tasks"
+    },
+    "/notes/{noteId}": {
+      "schema": "Note",
+      "description": "Shared notes"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "/connections/{connectionId}": {
+      "schema": "Connection",
+      "description": "Founder connections"
+    },
+    "/learningPaths/{pathId}": {
+      "schema": "LearningPath",
+      "description": "Curated learning paths"
+    },
+    "/ideaVersions/{versionId}": {
+      "schema": "IdeaVersion",
+      "description": "Snapshots of idea descriptions"
+    },
+    "/teamMembers/{memberId}": {
+      "schema": "TeamMember",
+      "description": "Team member records"
+    },
+    "/traction/{tractionId}": {
+      "schema": "Traction",
+      "description": "Startup traction metrics"
+    },
+    "/investorProfiles/{userId}": {
+      "schema": "InvestorProfile",
+      "description": "Investor profiles"
+    },
+    "/investmentInterests/{interestId}": {
+      "schema": "InvestmentInterest",
+      "description": "Investor interest records"
+    }
+  }
+}
