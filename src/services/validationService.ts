@@ -40,8 +40,14 @@ export async function validateIdea(
   });
   
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to validate idea");
+    const text = await response.text();
+    console.error("Server error response (validate-idea-detailed):", text);
+    try {
+      const error = JSON.parse(text);
+      throw new Error(error.error || "Failed to validate idea");
+    } catch (e) {
+      throw new Error(`Server returned non-JSON error: ${text.substring(0, 100)}`);
+    }
   }
   
   return response.json();
