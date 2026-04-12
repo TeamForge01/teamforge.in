@@ -3,13 +3,15 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { 
-  serverGenerateUserProfile, 
-  serverValidateIdea, 
-  serverRankCoFounderMatches, 
-  serverChatWithLearningAssistant,
-  serverValidateIdeaDetailed
-} from "./src/services/gemini.server";
+
+// Catch process errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +20,8 @@ async function startServer() {
   try {
     console.log("Starting TeamForge Server...");
     console.log("NODE_ENV:", process.env.NODE_ENV);
+    console.log("CWD:", process.cwd());
+
     const app = express();
     const PORT = 3000;
 
@@ -25,24 +29,35 @@ async function startServer() {
 
     // Request logger
     app.use((req, res, next) => {
-      console.log(`${req.method} ${req.url}`);
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
       next();
     });
 
     // API Routes
     app.get("/api/health", (req, res) => {
-      console.log("Health check hit");
-      res.json({ status: "ok" });
+      res.json({ status: "ok", timestamp: new Date().toISOString() });
     });
 
     app.get("/api/test", (req, res) => {
-      res.json({ message: "API is working" });
+      const key = process.env.GEMINI_API_KEY;
+      const isKeySet = key && key !== "MY_GEMINI_API_KEY";
+      res.json({ 
+        message: "API is working", 
+        env: process.env.NODE_ENV,
+        aiReady: !!isKeySet
+      });
     });
 
+    // Lazy load AI services to prevent startup crashes
+    const getAiServices = async () => {
+      return await import("./src/services/gemini.server.js");
+    };
+
     app.post("/api/ai/generate-profile", async (req, res) => {
-      console.log("Generate profile hit:", req.body);
+      console.log("Generate profile hit");
       try {
         const { answers } = req.body;
+        const { serverGenerateUserProfile } = await getAiServices();
         const profile = await serverGenerateUserProfile(answers);
         res.json(profile);
       } catch (error: any) {
@@ -54,6 +69,7 @@ async function startServer() {
     app.post("/api/ai/validate-idea", async (req, res) => {
       try {
         const { idea } = req.body;
+        const { serverValidateIdea } = await getAiServices();
         const validation = await serverValidateIdea(idea);
         res.json(validation);
       } catch (error: any) {
@@ -65,6 +81,7 @@ async function startServer() {
     app.post("/api/ai/validate-idea-detailed", async (req, res) => {
       try {
         const { description, targetAudience, revenueModel, geography } = req.body;
+        const { serverValidateIdeaDetailed } = await getAiServices();
         const validation = await serverValidateIdeaDetailed(description, targetAudience, revenueModel, geography);
         res.json(validation);
       } catch (error: any) {
@@ -76,6 +93,7 @@ async function startServer() {
     app.post("/api/ai/rank-matches", async (req, res) => {
       try {
         const { userProfile, otherProfiles } = req.body;
+        const { serverRankCoFounderMatches } = await getAiServices();
         const matches = await serverRankCoFounderMatches(userProfile, otherProfiles);
         res.json(matches);
       } catch (error: any) {
@@ -87,6 +105,7 @@ async function startServer() {
     app.post("/api/ai/chat", async (req, res) => {
       try {
         const { messages, userContext } = req.body;
+        const { serverChatWithLearningAssistant } = await getAiServices();
         const response = await serverChatWithLearningAssistant(messages, userContext);
         res.json({ text: response });
       } catch (error: any) {
@@ -103,11 +122,16 @@ async function startServer() {
 
     // Vite middleware for development
     if (process.env.NODE_ENV !== "production") {
+      console.log("Initializing Vite middleware...");
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: { 
+          middlewareMode: true,
+          hmr: false // Disable HMR to avoid port conflicts
+        },
         appType: "spa",
       });
       app.use(vite.middlewares);
+      console.log("Vite middleware initialized.");
     } else {
       const distPath = path.join(process.cwd(), 'dist');
       app.use(express.static(distPath));
@@ -117,7 +141,7 @@ async function startServer() {
     }
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
   } catch (err) {
     console.error("CRITICAL SERVER STARTUP ERROR:", err);

@@ -32,7 +32,7 @@ export async function serverGenerateUserProfile(answers: string[]) {
   - LookingFor (a short summary of the type of co-founder they are looking for)`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-1.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -92,7 +92,7 @@ export async function serverValidateIdea(idea: any) {
   - competitors (array of strings, top 5 competitors)`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-1.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -165,7 +165,7 @@ export async function serverRankCoFounderMatches(userProfile: any, otherProfiles
   Return only the top 3 matches, sorted by score descending.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-1.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -207,7 +207,7 @@ export async function serverChatWithLearningAssistant(messages: any[], userConte
   Keep responses concise, encouraging, and practical.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-1.5-flash",
     contents: [
       { role: "user", parts: [{ text: prompt }] },
       ...messages.map(m => ({
@@ -246,7 +246,7 @@ Also provide:
 - Next steps for the founder.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-1.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
