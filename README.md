@@ -8,7 +8,7 @@ TEAMFORGE is a platform where ideas turn into real startups.
 
 It helps builders, students, and aspiring founders go from just having an idea to actually building a startup by connecting them with the right people and tools.
 
-💡 What is TEAMFORGE?
+## 💡 What is TEAMFORGE?
 
 Most people have startup ideas but struggle to:
 
@@ -40,11 +40,11 @@ Founders can accept team members, form teams, and start building real startups.
 
 TEAMFORGE aims to become the place where startups begin — a platform where anyone can go from idea → team → product.
 
-🚀 Status
+## 🚀 Status
 
 Currently in early development (MVP stage).
 
-🧠 Why TEAMFORGE?
+## 🧠 Why TEAMFORGE?
 
 Instead of learning about startups, users build them.
 ## Run Locally
