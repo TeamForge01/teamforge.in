@@ -23,6 +23,7 @@ import {
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import { rankCoFounderMatches } from '../lib/gemini';
 
 export default function DiscoverFounders() {
   const { user, profile } = useAuth();
@@ -31,6 +32,7 @@ export default function DiscoverFounders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [connecting, setConnecting] = useState<string | null>(null);
   const [myConnections, setMyConnections] = useState<any[]>([]);
+  const [isMatching, setIsMatching] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -42,32 +44,61 @@ export default function DiscoverFounders() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user) {
-      let q;
-      if (searchQuery.trim()) {
-        const searchLower = searchQuery.toLowerCase().replace('@', '');
-        q = query(
-          collection(db, 'profiles'),
-          where('username', '>=', searchLower),
-          where('username', '<=', searchLower + '\uf8ff'),
-          limit(20)
-        );
-      } else {
-        q = query(
-          collection(db, 'profiles'),
-          where('uid', '!=', user.uid),
-          limit(20)
-        );
+  const handleAiMatchmaking = async () => {
+    if (!user || !profile) return;
+    setIsMatching(true);
+    try {
+      const q = query(collection(db, 'profiles'), where('uid', '!=', user.uid), limit(50));
+      const snap = await getDocs(q);
+      const otherProfiles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      if (otherProfiles.length > 0) {
+        const ranked = await rankCoFounderMatches(profile, otherProfiles);
+        setFounders(ranked);
+        toast.success("AI Matchmaking complete! Showing top matches.");
       }
+    } catch (error) {
+      console.error("AI Matchmaking error:", error);
+      toast.error("Failed to run AI matchmaking.");
+    } finally {
+      setIsMatching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && !searchQuery.trim()) {
+      const q = query(
+        collection(db, 'profiles'),
+        where('uid', '!=', user.uid),
+        limit(20)
+      );
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const foundersData = snapshot.docs
           .map(doc => ({
             id: doc.id,
             ...doc.data()
-          }))
-          .filter(f => f.uid !== user.uid); // Filter out current user if searching
+          }));
+        setFounders(foundersData);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } else if (user && searchQuery.trim()) {
+      const searchLower = searchQuery.toLowerCase().replace('@', '');
+      const q = query(
+        collection(db, 'profiles'),
+        where('username', '>=', searchLower),
+        where('username', '<=', searchLower + '\uf8ff'),
+        limit(20)
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const foundersData = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
         setFounders(foundersData);
         setLoading(false);
       });
@@ -263,8 +294,16 @@ export default function DiscoverFounders() {
                 Our Team Forge AI can scan 10,000+ deep-web profiles to find founders that align with your specific methodology and core values.
               </p>
             </div>
-            <Button className="w-full py-8 bg-white text-[#1f1b12] font-black text-sm rounded-2xl border border-[#111111]/5 hover:bg-[#903f00] hover:text-white transition-all shadow-xl">
-              Activate AI Matchmaking
+            <Button 
+              onClick={handleAiMatchmaking}
+              disabled={isMatching}
+              className="w-full py-8 bg-white text-[#1f1b12] font-black text-sm rounded-2xl border border-[#111111]/5 hover:bg-[#903f00] hover:text-white transition-all shadow-xl"
+            >
+              {isMatching ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Matching...</>
+              ) : (
+                "Activate AI Matchmaking"
+              )}
             </Button>
           </motion.div>
         </div>

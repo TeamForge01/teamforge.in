@@ -185,6 +185,19 @@ export default function Dashboard() {
     if (!user || !profile) return;
     setConnectingId(targetUserId);
     try {
+      // Check for existing connection
+      const q = query(
+        collection(db, 'connections'),
+        where('users', 'array-contains', user.uid)
+      );
+      const snap = await getDocs(q);
+      const existing = snap.docs.find(d => d.data().users.includes(targetUserId));
+      
+      if (existing) {
+        toast.error("Connection already exists or is pending.");
+        return;
+      }
+
       await addDoc(collection(db, 'connections'), {
         users: [user.uid, targetUserId],
         status: 'pending',
