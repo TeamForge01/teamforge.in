@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../components/AuthContext';
 import { db, sendNotification } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, updateDoc, setDoc, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
@@ -26,15 +26,56 @@ import { DashboardSidebar } from '../components/DashboardSidebar';
 import ProjectShowcase from '../components/ProjectShowcase';
 import EditProfileModal from '../components/EditProfileModal';
 import { cn } from '../lib/utils';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function Profile() {
   const { userId } = useParams();
+  const navigate = useNavigate();
+  const { isOpen } = useSidebar();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [ideas, setIdeas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [connectionCount, setConnectionCount] = useState(0);
+  const [teamsJoinedCount, setTeamsJoinedCount] = useState(0);
+
+  const isOwnProfile = currentUser?.uid === userId;
+
+  useEffect(() => {
+    if (currentUser && isOwnProfile) {
+      // Incoming connection requests
+      const q = query(
+        collection(db, 'connections'), 
+        where('users', 'array-contains', currentUser.uid),
+        where('status', '==', 'pending')
+      );
+      const unsub = onSnapshot(q, (snap) => {
+        const requests = snap.docs
+          .filter(d => d.data().users[1] === currentUser.uid) // I am the receiver
+          .map(d => ({ id: d.id, ...d.data() }));
+        setPendingRequests(requests);
+      });
+
+      // Incoming join requests for my ideas
+      const qJoin = query(
+        collection(db, 'joinRequests'),
+        where('founderId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+      );
+      const unsubJoin = onSnapshot(qJoin, (snap) => {
+        setJoinRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      return () => {
+        unsub();
+        unsubJoin();
+      };
+    }
+  }, [currentUser, isOwnProfile]);
 
   useEffect(() => {
     if (currentUser && userId) {
@@ -43,7 +84,7 @@ export default function Profile() {
         where('users', 'array-contains', currentUser.uid)
       );
       const unsub = onSnapshot(q, (snap) => {
-        const connected = snap.docs.some(d => d.data().users.includes(userId));
+        const connected = snap.docs.some(d => d.data().users.includes(userId) && d.data().status === 'accepted');
         setIsConnected(connected);
       });
       return () => unsub();
@@ -65,7 +106,32 @@ export default function Profile() {
       const unsub = onSnapshot(q, (snap) => {
         setIdeas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
-      return () => unsub();
+
+      // Connection count
+      const qConn = query(
+        collection(db, 'connections'),
+        where('users', 'array-contains', userId),
+        where('status', '==', 'accepted')
+      );
+      const unsubConn = onSnapshot(qConn, (snap) => {
+        setConnectionCount(snap.size);
+      });
+
+      // Teams joined count
+      const qJoined = query(
+        collection(db, 'joinRequests'),
+        where('userId', '==', userId),
+        where('status', '==', 'accepted')
+      );
+      const unsubJoined = onSnapshot(qJoined, (snap) => {
+        setTeamsJoinedCount(snap.size);
+      });
+
+      return () => {
+        unsub();
+        unsubConn();
+        unsubJoined();
+      };
     }
   }, [userId]);
 
@@ -97,6 +163,59 @@ export default function Profile() {
     }
   };
 
+  const handleApproveConnection = async (requestId: string, senderId: string) => {
+    try {
+      await updateDoc(doc(db, 'connections', requestId), {
+        status: 'accepted'
+      });
+      toast.success("Connection approved!");
+    } catch (error) {
+      console.error("Approval error:", error);
+      toast.error("Failed to approve connection.");
+    }
+  };
+
+  const handleApproveJoin = async (requestId: string, ideaId: string, userId: string) => {
+    try {
+      await updateDoc(doc(db, 'joinRequests', requestId), {
+        status: 'accepted'
+      });
+      // Add user to team members in the idea document
+      const ideaRef = doc(db, 'ideas', ideaId);
+      const ideaSnap = await getDoc(ideaRef);
+      if (ideaSnap.exists()) {
+        const team = ideaSnap.data().team || [];
+        await updateDoc(ideaRef, {
+          team: [...team, userId]
+        });
+      }
+      toast.success("Join request approved!");
+    } catch (error) {
+      console.error("Join approval error:", error);
+      toast.error("Failed to approve join request.");
+    }
+  };
+
+  const handleMessage = async () => {
+    if (!currentUser || !userId) return;
+    const chatId = [currentUser.uid, userId].sort().join('_');
+    const convRef = doc(db, 'conversations', chatId);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      await setDoc(convRef, {
+        participants: [currentUser.uid, userId],
+        lastMessage: '',
+        lastMessageAt: serverTimestamp(),
+        unreadCount: {
+          [currentUser.uid]: 0,
+          [userId]: 0
+        }
+      });
+    }
+    navigate('/messages', { state: { chatId } });
+  };
+
   const handleShareProfile = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
@@ -106,13 +225,11 @@ export default function Profile() {
   if (loading) return null;
   if (!profile) return <div className="p-12 text-center font-bold">Profile not found.</div>;
 
-  const isOwnProfile = currentUser?.uid === userId;
-
   return (
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-12">
+      <main className="flex-1 lg:ml-64 p-6 md:p-12 transition-all duration-300">
         <div className="max-w-6xl mx-auto space-y-12">
           {/* Header Section */}
           <header className="relative group">
@@ -160,6 +277,14 @@ export default function Profile() {
             </div>
 
             <div className="absolute bottom-4 right-4 flex gap-3">
+              {isOwnProfile && (
+                <Link to="/messages">
+                  <Button className="bg-[#1f1b12] text-white hover:bg-[#903f00] rounded-2xl font-bold px-6 py-6 shadow-xl transition-all active:scale-95">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    My Inbox
+                  </Button>
+                </Link>
+              )}
               <Button 
                 variant="outline" 
                 onClick={handleShareProfile}
@@ -170,7 +295,10 @@ export default function Profile() {
               </Button>
               {!isOwnProfile ? (
                 <>
-                  <Button className="bg-[#1f1b12] text-white hover:bg-[#903f00] rounded-2xl font-bold px-6 py-6 shadow-xl transition-all active:scale-95">
+                  <Button 
+                    onClick={handleMessage}
+                    className="bg-[#1f1b12] text-white hover:bg-[#903f00] rounded-2xl font-bold px-6 py-6 shadow-xl transition-all active:scale-95"
+                  >
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Message
                   </Button>
@@ -207,11 +335,11 @@ export default function Profile() {
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#564338]/40">Ideas Created</p>
             </div>
             <div className="text-center border-x border-[#111111]/5">
-              <p className="text-2xl font-black text-[#1f1b12]">0</p>
+              <p className="text-2xl font-black text-[#1f1b12]">{teamsJoinedCount}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#564338]/40">Teams Joined</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-black text-[#1f1b12]">0</p>
+              <p className="text-2xl font-black text-[#1f1b12]">{connectionCount}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#564338]/40">Connections</p>
             </div>
           </div>
@@ -219,6 +347,56 @@ export default function Profile() {
           <div className="grid grid-cols-12 gap-8 pt-8">
             {/* Left Column: Skills & Interests */}
             <div className="col-span-12 lg:col-span-4 space-y-8">
+              {isOwnProfile && (pendingRequests.length > 0 || joinRequests.length > 0) && (
+                <section className="bg-white p-8 rounded-[2.5rem] border-2 border-[#903f00]/20 space-y-6">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#903f00] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Pending Requests
+                  </h3>
+                  
+                  {pendingRequests.map((req) => (
+                    <div key={req.id} className="p-4 bg-[#fcf3e3] rounded-2xl flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-[#903f00] text-white text-[10px]">R</AvatarFallback>
+                        </Avatar>
+                        <p className="text-xs font-bold text-[#1f1b12]">Connection Request</p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleApproveConnection(req.id, req.users[0])}
+                        className="bg-[#1f1b12] hover:bg-[#903f00] text-white text-[10px] h-8 px-4 rounded-xl"
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  ))}
+
+                  {joinRequests.map((req) => (
+                    <div key={req.id} className="p-4 bg-[#fcf3e3] rounded-2xl flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="bg-[#903f00] text-white text-[10px]">J</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-xs font-black text-[#1f1b12]">Join Request</p>
+                            <p className="text-[10px] font-bold text-[#564338]/60">for {req.ideaTitle}</p>
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleApproveJoin(req.id, req.ideaId, req.userId)}
+                          className="bg-[#1f1b12] hover:bg-[#903f00] text-white text-[10px] h-8 px-4 rounded-xl"
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+
               <section className="bg-[#fcf3e3] p-8 rounded-[2.5rem] space-y-8 border border-[#111111]/5">
                 <div>
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#564338]/60 font-headline mb-6">Skills</h3>

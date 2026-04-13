@@ -62,10 +62,12 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { validateIdea } from '../lib/gemini';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function Workspace() {
   const { ideaId } = useParams();
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -287,7 +289,7 @@ export default function Workspace() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 flex flex-col h-screen">
+      <main className="flex-1 lg:ml-64 flex flex-col h-screen transition-all duration-300">
         {/* Workspace Header */}
         <header className="p-6 bg-white border-b border-[#111111]/5 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-6">

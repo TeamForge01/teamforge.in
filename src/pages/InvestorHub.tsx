@@ -34,6 +34,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { DashboardSidebar } from '../components/DashboardSidebar';
+import { useSidebar } from '../components/SidebarContext';
+import { cn } from '../lib/utils';
 import { 
   Dialog, 
   DialogContent, 
@@ -47,6 +49,7 @@ import { Textarea } from '../components/ui/textarea';
 
 export default function InvestorHub() {
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [startups, setStartups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +118,7 @@ export default function InvestorHub() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 lg:ml-64 p-8 transition-all duration-300">
         <div className="max-w-6xl mx-auto space-y-8">
           <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Button } from '../components/ui/button';
+import { useSidebar } from '../components/SidebarContext';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -156,6 +157,7 @@ const CATEGORIES = [
 
 export default function LearningHub() {
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const [view, setView] = useState<'courses' | 'paths'>('courses');
   const [selectedCategory, setSelectedCategory] = useState('Startup Essentials');
   const [searchQuery, setSearchQuery] = useState('');
@@ -258,7 +260,7 @@ export default function LearningHub() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-10 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 lg:ml-64 p-10 flex flex-col h-screen overflow-hidden transition-all duration-300">
         <header className="mb-10 shrink-0">
           <div className="flex justify-between items-end">
             <div>

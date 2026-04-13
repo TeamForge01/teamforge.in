@@ -32,10 +32,12 @@ import {
 import { toast } from 'sonner';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { cn } from '../lib/utils';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function TeamSpace() {
   const { ideaId } = useParams();
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -241,7 +243,7 @@ export default function TeamSpace() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-10 h-screen flex flex-col">
+      <main className="flex-1 lg:ml-64 p-6 md:p-10 h-screen flex flex-col transition-all duration-300">
         <header className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate(-1)} className="text-[#564338]/60 hover:text-[#903f00] font-bold">

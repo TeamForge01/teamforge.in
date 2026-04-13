@@ -14,9 +14,11 @@ import { cn } from '../lib/utils';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function CreateIdea() {
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
@@ -103,39 +105,16 @@ export default function CreateIdea() {
 
     setIsValidating(true);
     try {
-      const validation = await validateIdea({
-        title: formData.title,
-        description: formData.description,
-        problem: formData.problem,
-        solution: formData.solution,
-        targetAudience: formData.targetAudience,
-        revenueModel: formData.revenueModel,
-        geography: formData.geography
-      });
-      
-      setValidationResult(validation);
-      toast.success("AI Validation Complete!");
-    } catch (error: any) {
-      console.error("Failed to validate idea:", error);
-      toast.error(error.message || "Validation failed. Please try again.");
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    if (!user || !profile || !validationResult) return;
-
-    setIsValidating(true);
-    try {
+      // Optional: Still do validation but don't block launch if user wants it fast
+      // For now, let's just save it directly as requested
       const ideaPath = 'ideas';
       const ideaRef = await addDoc(collection(db, ideaPath), {
         ...formData,
         skills,
         founderId: user.uid,
         founderName: profile.displayName,
+        founderPhoto: profile.photoURL || '',
         status: 'published',
-        aiValidation: validationResult,
         createdAt: serverTimestamp()
       });
 
@@ -149,11 +128,15 @@ export default function CreateIdea() {
     }
   };
 
+  const handleFinalSubmit = async () => {
+    // Redundant now
+  };
+
   return (
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-10">
+      <main className="flex-1 lg:ml-64 p-6 md:p-10 transition-all duration-300">
         <header className="mb-12">
           <motion.span 
             initial={{ opacity: 0, y: 10 }}
@@ -413,50 +396,23 @@ export default function CreateIdea() {
               >
                 Cancel
               </button>
-              {!validationResult ? (
-                <div className="flex flex-col items-end gap-2">
-                  <Button 
-                    type="submit" 
-                    disabled={isValidating}
-                    className="bg-[#1f1b12] text-white px-12 py-8 rounded-2xl font-black shadow-2xl hover:bg-[#903f00] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 h-auto text-lg"
-                  >
-                    {isValidating ? (
-                      <>
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        Validating...
-                      </>
-                    ) : (
-                      <>
-                        Validate Idea
-                        <Sparkles className="w-6 h-6" />
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-[10px] font-bold text-[#903f00] uppercase tracking-widest">AI Validation Required to Launch</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-end gap-2">
-                  <Button 
-                    type="button"
-                    onClick={handleFinalSubmit}
-                    disabled={isValidating}
-                    className="bg-[#903f00] text-white px-12 py-8 rounded-2xl font-black shadow-2xl hover:bg-[#1f1b12] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 h-auto text-lg ring-4 ring-[#903f00]/20"
-                  >
-                    {isValidating ? (
-                      <>
-                        <Loader2 className="w-6 h-6 animate-spin" />
-                        Launching...
-                      </>
-                    ) : (
-                      <>
-                        Launch Idea
-                        <Rocket className="w-6 h-6" />
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Validation Passed! Ready to Launch</p>
-                </div>
-              )}
+              <Button 
+                type="submit" 
+                disabled={isValidating}
+                className="bg-[#1f1b12] text-white px-12 py-8 rounded-2xl font-black shadow-2xl hover:bg-[#903f00] transition-all transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 h-auto text-lg"
+              >
+                {isValidating ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    Launching...
+                  </>
+                ) : (
+                  <>
+                    Launch Idea Card
+                    <Rocket className="w-6 h-6" />
+                  </>
+                )}
+              </Button>
             </div>
           </motion.div>
 

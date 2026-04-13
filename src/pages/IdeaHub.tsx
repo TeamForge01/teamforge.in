@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { db } from '../lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { useAuth } from '../components/AuthContext';
+import { toast } from 'sonner';
 import { 
   Search as SearchIcon, 
   Filter as FilterIcon, 
@@ -12,24 +14,65 @@ import {
   ArrowRight as ArrowRightIcon, 
   Bookmark as BookmarkIcon, 
   TrendingUp as TrendingUpIcon,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { cn } from '../lib/utils';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function IdeaHub() {
+  const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const [ideas, setIdeas] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Concepts');
+  const [requestingId, setRequestingId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'ideas'), where('status', '==', 'published'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       setIdeas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+
+    if (user) {
+      const qReq = query(collection(db, 'joinRequests'), where('userId', '==', user.uid));
+      const unsubReq = onSnapshot(qReq, (snap) => {
+        setMyRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return () => {
+        unsub();
+        unsubReq();
+      };
+    }
+
     return () => unsub();
-  }, []);
+  }, [user]);
+
+  const handleJoinRequest = async (idea: any) => {
+    if (!user || !profile) return;
+    setRequestingId(idea.id);
+    try {
+      await addDoc(collection(db, 'joinRequests'), {
+        ideaId: idea.id,
+        ideaTitle: idea.title,
+        userId: user.uid,
+        userName: profile.displayName,
+        userRole: profile.role,
+        status: 'pending',
+        founderId: idea.founderId,
+        createdAt: serverTimestamp()
+      });
+      toast.success("Join request sent!");
+    } catch (error) {
+      console.error("Join error:", error);
+      toast.error("Failed to send request.");
+    } finally {
+      setRequestingId(null);
+    }
+  };
 
   const categories = ['All Concepts', 'SaaS', 'AI & ML', 'FinTech', 'Clean Energy'];
 
@@ -45,7 +88,7 @@ export default function IdeaHub() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-12">
+      <main className="flex-1 lg:ml-64 p-6 md:p-12 transition-all duration-300">
         {/* Hero Section */}
         <header className="mb-16 max-w-4xl">
           <motion.div 
@@ -54,7 +97,7 @@ export default function IdeaHub() {
             className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#903f00]/10 rounded-full mb-8"
           >
             <Zap className="w-4 h-4 text-[#903f00] fill-[#903f00]" />
-            <span className="text-[10px] uppercase tracking-[0.2em] font-black text-[#903f00] font-headline">Idea Hub</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-black text-[#903f00] font-headline">The Forge</span>
           </motion.div>
           
           <motion.h1 
@@ -63,7 +106,7 @@ export default function IdeaHub() {
             transition={{ delay: 0.1 }}
             className="text-6xl font-black tracking-tighter text-[#1f1b12] mb-8 leading-[1.05]"
           >
-            Where visionary <span className="text-[#903f00] italic">concepts</span> meet their founding teams.
+            Showcase your <span className="text-[#903f00] italic">vision</span> and build your founding team.
           </motion.h1>
           
           <motion.p 
@@ -143,25 +186,42 @@ export default function IdeaHub() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center justify-between mt-auto pt-8 border-t border-[#111111]/5">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
-                          <AvatarImage src={idea.founderPhoto} />
-                          <AvatarFallback className="bg-[#903f00] text-white font-bold">
-                            {idea.founderName?.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-[#564338]/40">Founder</p>
-                          <p className="text-sm font-black text-[#1f1b12]">{idea.founderName}</p>
+                      <div className="flex items-center justify-between mt-auto pt-8 border-t border-[#111111]/5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
+                            <AvatarImage src={idea.founderPhoto} />
+                            <AvatarFallback className="bg-[#903f00] text-white font-bold">
+                              {idea.founderName?.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[#564338]/40">Founder</p>
+                            <p className="text-sm font-black text-[#1f1b12]">{idea.founderName}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link to={`/idea/${idea.id}`}>
+                            <Button variant="outline" className="border-[#1f1b12] text-[#1f1b12] px-6 py-6 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95">
+                              View
+                            </Button>
+                          </Link>
+                          {user?.uid !== idea.founderId && (
+                            <Button 
+                              onClick={() => handleJoinRequest(idea)}
+                              disabled={myRequests.some(r => r.ideaId === idea.id) || requestingId === idea.id}
+                              className="bg-[#1f1b12] hover:bg-[#903f00] text-white px-8 py-6 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-[#1f1b12]/10 active:scale-95"
+                            >
+                              {requestingId === idea.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : myRequests.some(r => r.ideaId === idea.id) ? (
+                                "Pending"
+                              ) : (
+                                "Join Startup"
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <Link to={`/idea/${idea.id}`}>
-                        <Button className="bg-[#1f1b12] hover:bg-[#903f00] text-white px-8 py-6 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-[#1f1b12]/10 active:scale-95">
-                          Join Startup
-                        </Button>
-                      </Link>
-                    </div>
                   </div>
                   <div className="hidden md:block w-2/5 rounded-[2rem] overflow-hidden relative">
                     <img 
@@ -201,23 +261,40 @@ export default function IdeaHub() {
                   </p>
                 </div>
                 
-                <div className="mt-auto space-y-8">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#564338]/40 mb-4">Skills Needed</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(idea.neededSkills || ['Product Design', 'Growth']).slice(0, 3).map((skill: string, idx: number) => (
-                        <span key={`${skill}-${idx}`} className="text-xs font-bold text-[#1f1b12] bg-[#f6edde] px-3 py-1 rounded-lg">
-                          {skill}
-                        </span>
-                      ))}
+                  <div className="mt-auto space-y-8">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#564338]/40 mb-4">Skills Needed</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(idea.neededSkills || ['Product Design', 'Growth']).slice(0, 3).map((skill: string, idx: number) => (
+                          <span key={`${skill}-${idx}`} className="text-xs font-bold text-[#1f1b12] bg-[#f6edde] px-3 py-1 rounded-lg">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Link to={`/idea/${idea.id}`}>
+                        <Button variant="outline" className="w-full py-6 border-2 border-[#903f00]/10 text-[#903f00] rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#903f00] hover:text-white transition-all active:scale-95">
+                          View Idea
+                        </Button>
+                      </Link>
+                      {user?.uid !== idea.founderId && (
+                        <Button 
+                          onClick={() => handleJoinRequest(idea)}
+                          disabled={myRequests.some(r => r.ideaId === idea.id) || requestingId === idea.id}
+                          className="w-full py-6 bg-[#1f1b12] text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#903f00] transition-all active:scale-95"
+                        >
+                          {requestingId === idea.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : myRequests.some(r => r.ideaId === idea.id) ? (
+                            "Pending Approval"
+                          ) : (
+                            "Request to Join"
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <Link to={`/idea/${idea.id}`}>
-                    <Button variant="outline" className="w-full py-6 border-2 border-[#903f00]/10 text-[#903f00] rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[#903f00] hover:text-white transition-all active:scale-95">
-                      View Idea
-                    </Button>
-                  </Link>
-                </div>
               </motion.div>
             );
           })}

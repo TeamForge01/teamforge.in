@@ -5,6 +5,7 @@ import { db, sendNotification } from '../lib/firebase';
 import { useAuth } from '../components/AuthContext';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { useSidebar } from '../components/SidebarContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { 
@@ -27,6 +28,7 @@ import { rankCoFounderMatches } from '../lib/gemini';
 
 export default function DiscoverFounders() {
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const [founders, setFounders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,7 +148,7 @@ export default function DiscoverFounders() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-12">
+      <main className="flex-1 lg:ml-64 p-12 transition-all duration-300">
         {/* Header Section */}
         <header className="max-w-6xl mx-auto mb-16 flex flex-col md:flex-row justify-between items-end gap-8">
           <div className="max-w-2xl">

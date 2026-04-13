@@ -25,10 +25,12 @@ import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function IdeaDetail() {
   const { ideaId } = useParams();
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +116,10 @@ export default function IdeaDetail() {
     <div className="min-h-screen bg-[#fff8f1] flex overflow-x-hidden">
       {user && <DashboardSidebar />}
       
-      <main className={cn("flex-1 pt-32 pb-24 px-8", user ? "ml-64" : "max-w-7xl mx-auto")}>
+      <main className={cn(
+        "flex-1 pt-32 pb-24 px-8 transition-all duration-300",
+        user ? "lg:ml-64" : "max-w-7xl mx-auto"
+      )}>
         <div className="max-w-7xl mx-auto">
           {/* Back Button & Team Space */}
           <div className="flex justify-between items-center mb-12">

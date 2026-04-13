@@ -24,6 +24,8 @@ import Workspace from './pages/Workspace';
 import Funding from './pages/Funding';
 import InvestorHub from './pages/InvestorHub';
 import IdeaValidation from './pages/IdeaValidation';
+import Settings from './pages/Settings';
+import Support from './pages/Support';
 
 function AppRoutes() {
   const { user, userData, loading } = useAuth();
@@ -97,6 +99,8 @@ function AppRoutes() {
           <Route path="/validate" element={user ? <IdeaValidation /> : <Navigate to="/login" />} />
           <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
           <Route path="/learning" element={user ? <LearningHub /> : <Navigate to="/login" />} />
+          <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
+          <Route path="/support" element={user ? <Support /> : <Navigate to="/login" />} />
         </Routes>
       </main>
       <Toaster position="top-center" richColors />
@@ -104,12 +108,16 @@ function AppRoutes() {
   );
 }
 
+import { SidebarProvider } from './components/SidebarContext';
+
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <SidebarProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

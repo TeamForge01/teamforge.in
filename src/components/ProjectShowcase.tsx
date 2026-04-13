@@ -165,7 +165,7 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                 Add Project
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#F5ECDD] border-none rounded-[2rem] max-w-md">
+            <DialogContent className="bg-[#F5ECDD] border-none rounded-[2rem] max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black text-[#111111]">Add New Project</DialogTitle>
               </DialogHeader>
@@ -309,7 +309,7 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                               <Pencil className="w-4 h-4" />
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="bg-[#F5ECDD] border-none rounded-[2rem] max-w-md">
+                          <DialogContent className="bg-[#F5ECDD] border-none rounded-[2rem] max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar">
                             <DialogHeader>
                               <DialogTitle className="text-2xl font-black text-[#111111]">Edit Project</DialogTitle>
                             </DialogHeader>

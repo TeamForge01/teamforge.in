@@ -1,8 +1,9 @@
+import { useLocation } from 'react-router-dom';
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../components/AuthContext';
 import { db, sendNotification } from '../lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
@@ -23,10 +24,13 @@ import {
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function Messages() {
   const { user } = useAuth();
-  const [chats, setChats] = useState<any[]>([]);
+  const { isOpen } = useSidebar();
+  const location = useLocation();
+  const [conversations, setConversations] = useState<any[]>([]);
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -35,17 +39,38 @@ export default function Messages() {
 
   useEffect(() => {
     if (user) {
-      const q = query(collection(db, 'profiles'), where('uid', '!=', user.uid));
-      const unsub = onSnapshot(q, (snap) => {
-        setChats(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const q = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', user.uid),
+        orderBy('lastMessageAt', 'desc')
+      );
+      const unsub = onSnapshot(q, async (snap) => {
+        const convs = await Promise.all(snap.docs.map(async (d) => {
+          const data = d.data();
+          const otherId = data.participants.find((p: string) => p !== user.uid);
+          const profileSnap = await getDoc(doc(db, 'profiles', otherId));
+          return {
+            id: d.id,
+            ...data,
+            otherUser: profileSnap.exists() ? { uid: otherId, ...profileSnap.data() } : { uid: otherId, displayName: 'Unknown User' }
+          };
+        }));
+        setConversations(convs);
+
+        // Handle initial selection from navigation state
+        const targetChatId = location.state?.chatId;
+        if (targetChatId && !selectedChat) {
+          const target = convs.find(c => c.id === targetChatId);
+          if (target) setSelectedChat(target);
+        }
       });
       return () => unsub();
     }
-  }, [user]);
+  }, [user, location.state]);
 
   useEffect(() => {
     if (user && selectedChat) {
-      const chatId = [user.uid, selectedChat.uid].sort().join('_');
+      const chatId = selectedChat.id;
       const q = query(
         collection(db, 'messages'),
         where('chatId', '==', chatId),
@@ -54,6 +79,16 @@ export default function Messages() {
       const unsub = onSnapshot(q, (snap) => {
         setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
+
+      // Mark as read
+      const markAsRead = async () => {
+        const convRef = doc(db, 'conversations', chatId);
+        await updateDoc(convRef, {
+          [`unreadCount.${user.uid}`]: 0
+        });
+      };
+      markAsRead();
+
       return () => unsub();
     }
   }, [user, selectedChat]);
@@ -68,7 +103,7 @@ export default function Messages() {
     e.preventDefault();
     if (!user || !selectedChat || !newMessage.trim()) return;
 
-    const chatId = [user.uid, selectedChat.uid].sort().join('_');
+    const chatId = selectedChat.id;
     const text = newMessage;
     setNewMessage('');
 
@@ -76,13 +111,20 @@ export default function Messages() {
       await addDoc(collection(db, 'messages'), {
         chatId,
         senderId: user.uid,
-        receiverId: selectedChat.uid,
+        receiverId: selectedChat.otherUser.uid,
         text,
         createdAt: serverTimestamp()
       });
 
+      const convRef = doc(db, 'conversations', chatId);
+      await updateDoc(convRef, {
+        lastMessage: text,
+        lastMessageAt: serverTimestamp(),
+        [`unreadCount.${selectedChat.otherUser.uid}`]: increment(1)
+      });
+
       await sendNotification(
-        selectedChat.uid,
+        selectedChat.otherUser.uid,
         'message',
         'New Message',
         `${user.displayName}: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`,
@@ -93,15 +135,15 @@ export default function Messages() {
     }
   };
 
-  const filteredChats = chats.filter(chat => 
-    chat.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredConversations = conversations.filter(conv => 
+    conv.otherUser.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-[#fff8f1] flex overflow-hidden">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 h-screen flex flex-row overflow-hidden bg-[#fff8f1]">
+      <main className="flex-1 lg:ml-64 h-screen flex flex-row overflow-hidden bg-[#fff8f1] transition-all duration-300">
         {/* Conversation List (Left Panel) */}
         <section className="w-[400px] flex flex-col bg-[#f6edde]/50 relative z-10 border-r border-[#111111]/5">
           <div className="px-8 pt-12 pb-8">
@@ -119,34 +161,41 @@ export default function Messages() {
 
           <ScrollArea className="flex-1 px-4 pb-8">
             <div className="space-y-2">
-              {filteredChats.map((chat) => (
+              {filteredConversations.map((conv) => (
                 <button
-                  key={chat.uid}
-                  onClick={() => setSelectedChat(chat)}
+                  key={conv.id}
+                  onClick={() => setSelectedChat(conv)}
                   className={cn(
-                    "w-full p-5 rounded-[2rem] cursor-pointer group transition-all flex gap-4 text-left",
-                    selectedChat?.uid === chat.uid 
+                    "w-full p-5 rounded-[2rem] cursor-pointer group transition-all flex gap-4 text-left relative",
+                    selectedChat?.id === conv.id 
                       ? "bg-white shadow-[0px_20px_40px_rgba(17,17,17,0.06)] border-l-4 border-[#903f00]" 
                       : "hover:bg-white/50"
                   )}
                 >
                   <div className="w-14 h-14 rounded-2xl overflow-hidden flex-shrink-0 border border-[#111111]/5">
                     <Avatar className="w-full h-full rounded-none">
-                      <AvatarImage src={chat.photoURL} className="object-cover" />
+                      <AvatarImage src={conv.otherUser.photoURL} className="object-cover" />
                       <AvatarFallback className="bg-[#903f00] text-white font-black text-lg">
-                        {chat.displayName?.charAt(0)}
+                        {conv.otherUser.displayName?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                   </div>
                   <div className="flex-1 min-w-0 py-1">
                     <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-black text-[#1f1b12] truncate tracking-tight">{chat.displayName}</h3>
-                      {selectedChat?.uid === chat.uid && (
-                        <span className="text-[10px] font-black text-[#903f00] uppercase tracking-widest">ACTIVE</span>
-                      )}
+                      <h3 className="font-black text-[#1f1b12] truncate tracking-tight">{conv.otherUser.displayName}</h3>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-[9px] font-bold text-[#564338]/40">
+                          {conv.lastMessageAt ? format(conv.lastMessageAt.toDate(), 'h:mm a') : ''}
+                        </span>
+                        {conv.unreadCount?.[user?.uid] > 0 && (
+                          <div className="w-5 h-5 bg-[#903f00] rounded-full flex items-center justify-center">
+                            <span className="text-[10px] font-black text-white">{conv.unreadCount[user.uid]}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-[#564338] font-bold italic opacity-60 truncate">
-                      {chat.role || 'Venture Partner'}
+                      {conv.lastMessage || conv.otherUser.role || 'Venture Partner'}
                     </p>
                   </div>
                 </button>
@@ -164,16 +213,16 @@ export default function Messages() {
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl overflow-hidden border border-[#111111]/5">
                     <Avatar className="w-full h-full rounded-none">
-                      <AvatarImage src={selectedChat.photoURL} className="object-cover" />
+                      <AvatarImage src={selectedChat.otherUser.photoURL} className="object-cover" />
                       <AvatarFallback className="bg-[#903f00] text-white font-black text-sm">
-                        {selectedChat.displayName?.charAt(0)}
+                        {selectedChat.otherUser.displayName?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                   </div>
                   <div>
-                    <h2 className="font-black text-lg text-[#1f1b12] tracking-tight leading-none">{selectedChat.displayName}</h2>
+                    <h2 className="font-black text-lg text-[#1f1b12] tracking-tight leading-none">{selectedChat.otherUser.displayName}</h2>
                     <p className="text-[10px] font-bold text-[#903f00] uppercase tracking-widest mt-1">
-                      {selectedChat.role || 'Founding Partner'}
+                      {selectedChat.otherUser.role || 'Founding Partner'}
                     </p>
                   </div>
                 </div>
@@ -217,12 +266,12 @@ export default function Messages() {
                           <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-[#111111]/5 mt-1">
                             {showAvatar ? (
                               <Avatar className="w-full h-full rounded-none">
-                                <AvatarImage src={isMe ? user?.photoURL : selectedChat.photoURL} />
+                                <AvatarImage src={isMe ? user?.photoURL : selectedChat.otherUser.photoURL} />
                                 <AvatarFallback className={cn(
                                   "text-[10px] font-black",
                                   isMe ? "bg-[#1f1b12] text-white" : "bg-[#903f00] text-white"
                                 )}>
-                                  {(isMe ? user?.displayName : selectedChat.displayName)?.charAt(0)}
+                                  {(isMe ? user?.displayName : selectedChat.otherUser.displayName)?.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                             ) : <div className="w-full h-full" />}

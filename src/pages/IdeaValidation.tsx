@@ -27,6 +27,7 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { validateIdea, ValidationResult } from '../services/validationService';
+import { useSidebar } from '../components/SidebarContext';
 import { 
   Radar, 
   RadarChart, 
@@ -39,6 +40,7 @@ import { cn } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
 export default function IdeaValidation() {
+  const { isOpen } = useSidebar();
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [revenueModel, setRevenueModel] = useState('');
@@ -78,7 +80,7 @@ export default function IdeaValidation() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 lg:ml-64 p-8 transition-all duration-300">
         <div className="max-w-6xl mx-auto space-y-8">
           <header>
             <h1 className="text-3xl font-black text-[#1f1b12] tracking-tight">Idea Validation Tool</h1>

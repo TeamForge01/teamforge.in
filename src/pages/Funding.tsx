@@ -35,10 +35,13 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { format } from 'date-fns';
+import { useSidebar } from '../components/SidebarContext';
+import { cn } from '../lib/utils';
 
 export default function Funding() {
   const { ideaId } = useParams();
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [idea, setIdea] = useState<any>(null);
   const [traction, setTraction] = useState<any[]>([]);
@@ -121,7 +124,7 @@ export default function Funding() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 lg:ml-64 p-8 transition-all duration-300">
         <div className="max-w-5xl mx-auto space-y-8">
           <header className="flex items-center justify-between">
             <div className="flex items-center gap-4">

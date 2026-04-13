@@ -26,9 +26,11 @@ import {
 import { DashboardSidebar } from '../components/DashboardSidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { cn } from '../lib/utils';
+import { useSidebar } from '../components/SidebarContext';
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
+  const { isOpen } = useSidebar();
   const navigate = useNavigate();
   const [myIdeas, setMyIdeas] = useState<any[]>([]);
   const [suggestedMatches, setSuggestedMatches] = useState<any[]>([]);
@@ -225,7 +227,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-[#fff8f1] flex">
       <DashboardSidebar />
       
-      <main className="flex-1 ml-64 p-10">
+      <main className="flex-1 lg:ml-64 p-6 md:p-10 transition-all duration-300">
         {/* Header Area */}
         <header className="flex justify-between items-end mb-12">
           <motion.div
