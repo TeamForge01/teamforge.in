@@ -42,11 +42,13 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [newProject, setNewProject] = useState({
     title: '',
     description: '',
-    technologies: '',
+    technologies: [] as string[],
+    techInput: '',
     link: '',
     imageURL: ''
   });
@@ -85,18 +87,74 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
     }
   };
 
+  const processFile = (file: File) => {
+    if (file.size > 1024 * 1024) { // 1MB limit for base64
+      toast.error('Image too large. Please use an image under 1MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNewProject(prev => ({ ...prev, imageURL: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
     if (file) {
-      if (file.size > 1024 * 1024) { // 1MB limit for base64
-        toast.error('Image too large. Please use an image under 1MB.');
-        return;
+      if (file.type.startsWith('image/')) {
+        processFile(file);
+      } else {
+        toast.error('Please upload an image file.');
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewProject(prev => ({ ...prev, imageURL: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddTech = (type: 'new' | 'edit', e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      if (type === 'new') {
+        const tech = newProject.techInput.trim();
+        if (tech && !newProject.technologies.includes(tech)) {
+          setNewProject(prev => ({
+            ...prev,
+            technologies: [...prev.technologies, tech],
+            techInput: ''
+          }));
+        }
+      } else if (editingProject) {
+        // We'll need a state for editing tech input if we want to support it properly
+      }
+    }
+  };
+
+  const removeTech = (type: 'new' | 'edit', tech: string) => {
+    if (type === 'new') {
+      setNewProject(prev => ({
+        ...prev,
+        technologies: prev.technologies.filter(t => t !== tech)
+      }));
+    } else if (editingProject) {
+      setEditingProject(prev => prev ? {
+        ...prev,
+        technologies: prev.technologies.filter(t => t !== tech)
+      } : null);
     }
   };
 
@@ -118,7 +176,7 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
         id: crypto.randomUUID(),
         title: newProject.title,
         description: newProject.description,
-        technologies: newProject.technologies.split(',').map(t => t.trim()).filter(t => t),
+        technologies: newProject.technologies,
         link: newProject.link,
         imageURL: newProject.imageURL
       };
@@ -128,7 +186,7 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
       });
 
       toast.success('Project added successfully!');
-      setNewProject({ title: '', description: '', technologies: '', link: '', imageURL: '' });
+      setNewProject({ title: '', description: '', technologies: [], techInput: '', link: '', imageURL: '' });
       setIsAdding(false);
     } catch (error) {
       console.error('Error adding project:', error);
@@ -203,6 +261,7 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                     <div className="relative group rounded-xl overflow-hidden aspect-video">
                       <img src={newProject.imageURL} alt="Preview" className="w-full h-full object-cover" />
                       <button 
+                         type="button"
                         onClick={() => setNewProject(prev => ({ ...prev, imageURL: '' }))}
                         className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
@@ -210,19 +269,46 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[#111111]/10 rounded-xl cursor-pointer hover:bg-white/50 transition-colors">
-                      <ImageIcon className="w-8 h-8 text-[#111111]/20 mb-2" />
-                      <span className="text-xs font-bold text-[#111111]/40">Upload Image (Max 1MB)</span>
+                    <label 
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={cn(
+                        "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                        isDragging 
+                          ? "border-[#B45309] bg-[#B45309]/5 scale-[1.02]" 
+                          : "border-[#111111]/10 hover:bg-white/50"
+                      )}
+                    >
+                      <ImageIcon className={cn("w-8 h-8 mb-2 transition-colors", isDragging ? "text-[#B45309]" : "text-[#111111]/20")} />
+                      <span className="text-xs font-bold text-[#111111]/40">
+                        {isDragging ? "Drop image here" : "Upload Image or Drop (Max 1MB)"}
+                      </span>
                       <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                     </label>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Technologies (comma separated)</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Technologies</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {newProject.technologies.map((tech) => (
+                      <Badge key={tech} className="bg-[#B45309] text-white hover:bg-[#B45309] flex items-center gap-1 py-1 px-2 pr-1">
+                        {tech}
+                        <button 
+                          type="button"
+                          onClick={() => removeTech('new', tech)}
+                          className="hover:bg-white/20 rounded-full p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
                   <Input 
-                    value={newProject.technologies}
-                    onChange={e => setNewProject({...newProject, technologies: e.target.value})}
-                    placeholder="React, Firebase, Tailwind"
+                    value={newProject.techInput}
+                    onChange={e => setNewProject({...newProject, techInput: e.target.value})}
+                    onKeyDown={(e) => handleAddTech('new', e)}
+                    placeholder="Type tech and press Enter or comma"
                     className="bg-white border-none rounded-xl"
                   />
                 </div>
@@ -330,6 +416,111 @@ export default function ProjectShowcase({ userId, projects = [], isOwnProfile }:
                                   className="bg-white border-none rounded-xl min-h-[100px]"
                                   maxLength={500}
                                 />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Technologies</label>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                  {editingProject?.technologies.map((tech) => (
+                                    <Badge key={tech} className="bg-[#B45309] text-white hover:bg-[#B45309] flex items-center gap-1 py-1 px-2 pr-1">
+                                      {tech}
+                                      <button 
+                                        type="button"
+                                        onClick={() => removeTech('edit', tech)}
+                                        className="hover:bg-white/20 rounded-full p-0.5"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </Badge>
+                                  ))}
+                                </div>
+                                <Input 
+                                  placeholder="Type tech and press Enter or comma"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ',') {
+                                      e.preventDefault();
+                                      const input = e.currentTarget;
+                                      const tech = input.value.trim();
+                                      if (tech && !editingProject?.technologies.includes(tech)) {
+                                        setEditingProject(prev => prev ? {
+                                          ...prev,
+                                          technologies: [...prev.technologies, tech]
+                                        } : null);
+                                        input.value = '';
+                                      }
+                                    }
+                                  }}
+                                  className="bg-white border-none rounded-xl"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Project Image</label>
+                                {editingProject?.imageURL ? (
+                                  <div className="relative group rounded-xl overflow-hidden aspect-video">
+                                    <img src={editingProject.imageURL} alt="Preview" className="w-full h-full object-cover" />
+                                    <button 
+                                      type="button"
+                                      onClick={() => setEditingProject(prev => prev ? { ...prev, imageURL: '' } : null)}
+                                      className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label 
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      setIsDragging(false);
+                                      const file = e.dataTransfer.files?.[0];
+                                      if (file) {
+                                        if (file.type.startsWith('image/')) {
+                                          if (file.size > 1024 * 1024) {
+                                            toast.error('Image too large. Please use an image under 1MB.');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            setEditingProject(prev => prev ? { ...prev, imageURL: reader.result as string } : null);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        } else {
+                                          toast.error('Please upload an image file.');
+                                        }
+                                      }
+                                    }}
+                                    className={cn(
+                                      "flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                                      isDragging 
+                                        ? "border-[#B45309] bg-[#B45309]/5 scale-[1.02]" 
+                                        : "border-[#111111]/10 hover:bg-white/50"
+                                    )}
+                                  >
+                                    <ImageIcon className={cn("w-8 h-8 mb-2 transition-colors", isDragging ? "text-[#B45309]" : "text-[#111111]/20")} />
+                                    <span className="text-xs font-bold text-[#111111]/40">
+                                      {isDragging ? "Drop image here" : "Upload Image or Drop (Max 1MB)"}
+                                    </span>
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept="image/*" 
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          if (file.size > 1024 * 1024) {
+                                            toast.error('Image too large. Please use an image under 1MB.');
+                                            return;
+                                          }
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            setEditingProject(prev => prev ? { ...prev, imageURL: reader.result as string } : null);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }} 
+                                    />
+                                  </label>
+                                )}
                               </div>
                               <div className="space-y-2">
                                 <label className="text-xs font-bold uppercase tracking-widest text-[#111111]/40">Project Link</label>

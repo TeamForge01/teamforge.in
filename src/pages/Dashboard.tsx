@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [myIdeas, setMyIdeas] = useState<any[]>([]);
   const [suggestedMatches, setSuggestedMatches] = useState<any[]>([]);
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [teamsJoinedCount, setTeamsJoinedCount] = useState(0);
   const [isMatching, setIsMatching] = useState(false);
   const [feedItems, setFeedItems] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
@@ -55,8 +56,13 @@ export default function Dashboard() {
     if (user && !profile) {
       const checkOnboarding = async () => {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
+        // Check both userDoc and profile existence (fallback for old users)
         if (!userDoc.exists() || !userDoc.data().onboardingCompleted) {
-          navigate('/onboarding');
+          // Double check if profile exists (might have loaded meanwhile)
+          const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+          if (!profileDoc.exists()) {
+            navigate('/onboarding');
+          }
         }
       };
       checkOnboarding();
@@ -77,11 +83,21 @@ export default function Dashboard() {
 
       const qRequests = query(
         collection(db, 'joinRequests'),
+        where('founderId', '==', user.uid),
         where('status', '==', 'pending'),
         limit(10)
       );
       const unsubRequests = onSnapshot(qRequests, (snap) => {
         setJoinRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      const qJoined = query(
+        collection(db, 'joinRequests'),
+        where('userId', '==', user.uid),
+        where('status', '==', 'accepted')
+      );
+      const unsubJoined = onSnapshot(qJoined, (snap) => {
+        setTeamsJoinedCount(snap.size);
       });
 
       const qProfiles = query(
@@ -138,6 +154,7 @@ export default function Dashboard() {
       return () => {
         unsubIdeas();
         unsubRequests();
+        unsubJoined();
       };
     }
   }, [user, profile]);
@@ -456,16 +473,25 @@ export default function Dashboard() {
 
           <motion.div 
             whileHover={{ y: -5 }}
-            className="col-span-1 md:col-span-2 bg-[#903f00] text-white p-6 rounded-3xl relative overflow-hidden shadow-xl"
+            className="col-span-1 bg-[#fcf3e3] p-6 rounded-3xl flex flex-col justify-between shadow-sm border border-[#111111]/5"
+          >
+            <div className="flex justify-between items-start">
+              <Plus className="w-6 h-6 text-emerald-600" />
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-tighter bg-emerald-50 px-2 py-1 rounded-full">Active</span>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-[#564338] font-bold">Teams Joined</p>
+              <p className="text-3xl font-black text-[#1f1b12]">{teamsJoinedCount.toString().padStart(2, '0')}</p>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="col-span-1 md:col-span-1 bg-[#903f00] text-white p-6 rounded-3xl relative overflow-hidden shadow-xl"
           >
             <div className="relative z-10">
-              <p className="text-sm font-bold opacity-80">Forge Performance Index</p>
+              <p className="text-sm font-bold opacity-80">Forge Index</p>
               <p className="text-4xl font-black mt-2">84.2</p>
-              <div className="mt-6 flex gap-1 items-end h-8">
-                {[4, 6, 5, 8, 7].map((h, i) => (
-                  <div key={i} className={cn("w-2 bg-white rounded-t-sm", `h-${h}`)} style={{ height: `${h * 4}px` }}></div>
-                ))}
-              </div>
             </div>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-[#b45309] rounded-full blur-3xl opacity-50"></div>
           </motion.div>
