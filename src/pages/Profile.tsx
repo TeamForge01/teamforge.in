@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { 
   MessageSquare, 
   UserPlus, 
+  Users,
   Settings, 
   Verified, 
   TrendingUp, 
@@ -42,6 +43,8 @@ export default function Profile() {
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const [connectionCount, setConnectionCount] = useState(0);
   const [teamsJoinedCount, setTeamsJoinedCount] = useState(0);
+  const [joinedIdeas, setJoinedIdeas] = useState<any[]>([]);
+  const [connections, setConnections] = useState<any[]>([]);
 
   const isOwnProfile = currentUser?.uid === userId;
 
@@ -93,14 +96,15 @@ export default function Profile() {
 
   useEffect(() => {
     if (userId) {
-      const fetchProfile = async () => {
-        const docSnap = await getDoc(doc(db, 'profiles', userId));
+      const unsubProfile = onSnapshot(doc(db, 'profiles', userId), (docSnap) => {
         if (docSnap.exists()) {
           setProfile(docSnap.data());
         }
         setLoading(false);
-      };
-      fetchProfile();
+      }, (error) => {
+        console.error("Error fetching profile:", error);
+        setLoading(false);
+      });
 
       const q = query(collection(db, 'ideas'), where('founderId', '==', userId));
       const unsub = onSnapshot(q, (snap) => {
@@ -115,6 +119,7 @@ export default function Profile() {
       );
       const unsubConn = onSnapshot(qConn, (snap) => {
         setConnectionCount(snap.size);
+        setConnections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       // Teams joined count
@@ -125,9 +130,11 @@ export default function Profile() {
       );
       const unsubJoined = onSnapshot(qJoined, (snap) => {
         setTeamsJoinedCount(snap.size);
+        setJoinedIdeas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
 
       return () => {
+        unsubProfile();
         unsub();
         unsubConn();
         unsubJoined();
@@ -479,11 +486,41 @@ export default function Profile() {
 
               <section>
                 <h2 className="text-3xl font-black tracking-tight font-headline text-[#1f1b12] mb-8">Teams Joined</h2>
-                <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-[#111111]/10 text-center">
-                  <p className="text-[#564338]/40 font-bold italic">Not part of any teams yet. Explore the Idea Hub to find your match.</p>
-                  <Link to="/hub">
-                    <Button className="mt-6 bg-[#1f1b12] text-white rounded-xl font-bold">Explore Hub</Button>
-                  </Link>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {joinedIdeas.map((joined) => (
+                    <motion.div 
+                      key={joined.id}
+                      whileHover={{ y: -5 }}
+                      className="bg-white p-8 rounded-[2.5rem] hover:shadow-xl transition-all group flex flex-col justify-between border border-[#111111]/5"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div className="bg-[#fcf3e3] h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm">
+                            <Users className="w-6 h-6 text-[#903f00]" />
+                          </div>
+                          <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                            Member
+                          </span>
+                        </div>
+                        <Link to={`/idea/${joined.ideaId}`}>
+                          <h3 className="text-xl font-black font-headline group-hover:text-[#903f00] transition-colors leading-tight">
+                            {joined.ideaTitle}
+                          </h3>
+                        </Link>
+                        <p className="text-[#564338] text-xs font-bold italic opacity-60 leading-relaxed">
+                          Joined as {joined.userRole || 'Contributor'}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {joinedIdeas.length === 0 && (
+                    <div className="md:col-span-2 bg-white p-12 rounded-[2.5rem] border border-dashed border-[#111111]/10 text-center">
+                      <p className="text-[#564338]/40 font-bold italic">Not part of any teams yet. Explore the Idea Hub to find your match.</p>
+                      <Link to="/hub">
+                        <Button className="mt-6 bg-[#1f1b12] text-white rounded-xl font-bold">Explore Hub</Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </section>
 

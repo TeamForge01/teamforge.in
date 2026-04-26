@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db, FirebaseUser } from '../lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -19,6 +19,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Explicitly set persistence
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (!user) {
@@ -33,12 +36,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user) {
+      // Don't set loading back to true if we already have some data - helps with "fast" feel
+      // though snapshots are fast from persistent cache
+      let profileResolved = false;
+      let userResolved = false;
+
+      const checkDone = () => {
+        if (profileResolved && userResolved) {
+          setLoading(false);
+        }
+      };
+
+      // Use a timeout as a fail-safe for loading screen if Firestore is slow
+      // This ensures the app becomes interactive even if metadata is still syncing
+      const timeout = setTimeout(() => {
+        if (loading) setLoading(false);
+      }, 3000); 
+
       const unsubscribeProfile = onSnapshot(doc(db, 'profiles', user.uid), (doc) => {
         if (doc.exists()) {
           setProfile(doc.data());
         } else {
           setProfile(null);
         }
+        profileResolved = true;
+        checkDone();
+      }, (error) => {
+        console.error("Error fetching profile:", error);
+        profileResolved = true;
+        checkDone();
       });
 
       const unsubscribeUser = onSnapshot(doc(db, 'users', user.uid), (doc) => {
@@ -47,13 +73,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setUserData(null);
         }
-        setLoading(false);
+        userResolved = true;
+        checkDone();
       }, (error) => {
         console.error("Error fetching user data:", error);
-        setLoading(false);
+        userResolved = true;
+        checkDone();
       });
 
       return () => {
+        clearTimeout(timeout);
         unsubscribeProfile();
         unsubscribeUser();
       };

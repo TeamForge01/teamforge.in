@@ -28,7 +28,7 @@ import Settings from './pages/Settings';
 import Support from './pages/Support';
 
 function AppRoutes() {
-  const { user, userData, loading } = useAuth();
+  const { user, userData, profile, loading } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -60,8 +60,9 @@ function AppRoutes() {
     );
   }
 
-  // Redirect to onboarding if not completed
-  if (user && !userData?.onboardingCompleted && location.pathname !== '/onboarding') {
+  // Redirect to onboarding if not completed (check both users collection and profiles as fallback for old users)
+  const hasOnboarded = userData?.onboardingCompleted || !!profile;
+  if (user && !hasOnboarded && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" />;
   }
 

@@ -14,12 +14,14 @@ const config = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfig.measurementId,
 };
 
-const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || '(default)';
+const rawDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || firebaseConfig.firestoreDatabaseId || '(default)';
+// Ensure databaseId is not a URL (FirebaseError: Invalid segment)
+const databaseId = rawDatabaseId.includes('://') ? '(default)' : rawDatabaseId;
 
 const app = initializeApp(config);
 export const auth = getAuth(app);
 
-// Initialize Firestore with custom settings for better connectivity
+// Initialize Firestore with custom settings for better connectivity and persistence
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,

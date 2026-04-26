@@ -1,19 +1,63 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import * as THREE from 'three';
+import GLOBE from 'vanta/dist/vanta.globe.min';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/button';
 import { ArrowRight, Lightbulb, Sparkles, Users, Handshake, Network, Activity } from 'lucide-react';
 import { useAuth } from '../components/AuthContext';
+import { IdeaValidatorQuick } from '../components/IdeaValidatorQuick';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const vantaRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Faster experience: if already logged in, skip the landing page
+    if (user && !loading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!vantaRef.current && containerRef.current) {
+      vantaRef.current = GLOBE({
+        el: containerRef.current,
+        THREE: THREE,
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        minHeight: 200.00,
+        minWidth: 200.00,
+        scale: 1.00,
+        scaleMobile: 1.00,
+        color: 0x121216,
+        backgroundColor: 0xedd49f, // As requested by user
+        size: 1.2
+      });
+    }
+    return () => {
+      if (vantaRef.current) {
+        vantaRef.current.destroy();
+        vantaRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#fff8f1] text-[#1f1b12] font-sans selection:bg-[#b45309]/30 selection:text-[#903f00]">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden px-8 pt-20">
-        {/* Abstract Shapes Background */}
+      <section className="relative min-h-[95vh] flex items-center overflow-hidden px-8 pt-20">
+        {/* Vanta Globe Background */}
+        <div 
+          ref={containerRef}
+          className="absolute inset-0 z-0 opacity-100 pointer-events-none"
+        />
+        
+        {/* Additional Abstract Blur for depth */}
         <div className="absolute inset-0 z-0 pointer-events-none">
           <div className="absolute top-[10%] right-[-5%] w-[600px] h-[600px] bg-[#b45309]/10 rounded-full blur-[120px]"></div>
           <div className="absolute bottom-[5%] left-[-10%] w-[500px] h-[500px] bg-[#0072c0]/5 rounded-full blur-[100px]"></div>
@@ -73,6 +117,21 @@ export default function Home() {
               </motion.div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Idea Validator Hook */}
+      <section className="py-20 px-8 relative overflow-hidden">
+        <div className="absolute inset-0 z-0 opacity-30">
+          <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-[#903f00]/10 rounded-full blur-[100px]"></div>
+          <div className="absolute bottom-[10%] right-[-10%] w-[500px] h-[500px] bg-[#0072c0]/5 rounded-full blur-[120px]"></div>
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <span className="font-mono text-xs font-bold tracking-[0.2em] text-[#903f00] uppercase mb-4 block">Validation Workshop</span>
+            <h2 className="font-headline text-4xl md:text-5xl font-bold text-[#1f1b12]">Test Your Spark.</h2>
+          </div>
+          <IdeaValidatorQuick />
         </div>
       </section>
 

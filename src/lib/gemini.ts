@@ -245,35 +245,37 @@ export async function validateIdeaDetailed(
   revenueModel: string,
   geography: string
 ) {
-  const prompt = `Validate this startup idea:
-Idea Description: ${description}
-Target Audience: ${targetAudience}
-Revenue Model: ${revenueModel}
-Geography: ${geography}
+  const prompt = `Objective: Perform a comprehensive research query to gather data on competition, market demand, monetization potential, associated risks, and future outlook for the following business idea. 
+  
+  Idea Description: ${description}
+  Target Audience: ${targetAudience}
+  Revenue Model: ${revenueModel}
+  Geography: ${geography}
 
-Provide a detailed breakdown including scores (1-10) for:
-1. Competition: Analyze the competitive landscape. Provide specific details on how this proposed idea differentiates itself from top competitors (Unique Selling Proposition).
-2. Demand: Evaluate market need and trend data.
-3. Monetization: Analyze the feasibility and scalability of the provided revenue model. If the current model seems weak or unscalable, suggest 2-3 alternative models.
-4. Risks: Identify major technical, regulatory, or market risks.
-5. Future: Assess long-term potential and exit possibilities.
+  Analyze the idea and provide a detailed report following this structure:
+  - Overall Score: (integer 1-10)
+  - Competition Analysis: Metric findings (Score 1-10), specific competitors, and how the idea differentiates.
+  - Market Demand: Analysis of user interest, keyword volume proxies, or social media trends (Score 1-10).
+  - Monetization Potential: Viability of the revenue model, pricing benchmarks, and scalability (Score 1-10).
+  - Risks and Challenges: Technical feasibility, regulatory issues, and market risks (Score 1-10).
+  - Future Outlook: Industry growth projections and expansion possibilities (Score 1-10).
 
-Also provide:
-- Strengths and Weaknesses.
-- Strategic Recommendations.
-- A list of 5 direct/indirect competitors. For each competitor, provide their name, a brief description, and a valid website link (URL).
-- Next steps for the founder.`;
+  Also include:
+  - Top 5 direct/indirect competitors with their names, descriptions, and valid website links.
+  - Actionable recommendations to improve scores.
+  - Concrete next steps for the founder (e.g., "Validate with 50 user interviews", "Build landing page").`;
 
   const ai = getAi();
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: prompt,
     config: {
+      tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          score: { type: Type.NUMBER },
+          score: { type: Type.NUMBER, description: "Overall viability score out of 10" },
           competition: {
             type: Type.OBJECT,
             properties: {
